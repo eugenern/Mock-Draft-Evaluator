@@ -160,7 +160,8 @@ def string_to_YMD(date_string, dt_string):
         print('Please input date in the following format: YYYYY-MM-DD')
         stdout.flush()
         date = stdin.readline().rstrip('\n')
-        year, month, day = (int(i) for i in day.split('-'))
+        print()
+        year, month, day = (int(i) for i in date.split('-'))
         return year, month, day
 
 def string_to_HMS(dt_string):
@@ -185,13 +186,14 @@ def string_to_HMS(dt_string):
     # raise an Exception, show dt_string and ask user to manually input time
     # I'd like to also show org name, but that'd require restructuring this program
     except TypeError as t_e:
-        if 'NoneType' in t_e.args:
+        if 'NoneType' in t_e.args[0]:
             print('Could not determine time from the following line:')
             print(dt_string)
             print('Please input time (as on a 24-hour clock) in the following format: HH:MM:SS')
             print('(If time is not known, write 00:00:00)')
             stdout.flush()
             time = stdin.readline().rstrip('\n')
+            print()
             hour, minute, second = (int(i) for i in time.split(':'))
         else:
             raise
@@ -265,6 +267,9 @@ def form_drafts():
                 # reset current_status
                 current_status = statuses[0]
 
+        # hacky way to create final DR in the file
+        yield DraftRanking(*dr_args)
+
 def read():
     """
     Use the input to retrieve DraftRankings on which work can be done
@@ -291,6 +296,9 @@ def evaluate():
     """
     # get the actual draft and a list of mock drafts
     actual, mocks = read()
+    print(actual.org_name)
+    for i in mocks:
+        print(i.org_name)
 
     # Use difflib's get_close_matches function to try to account for
     # variations of names in lists

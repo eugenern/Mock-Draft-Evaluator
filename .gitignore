@@ -100,5 +100,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-# just a file for testing out some Python
+# just files for testing out some Python
 test.py
+test_drafts
