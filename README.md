@@ -18,9 +18,9 @@ Evaluate how close a mock draft's ranking was to the actual draft using some sim
    * Leave a blank line to indicate the completion of the draft description, that is to say, that all players in the draft or mock draft have been listed on the preceding lines. The last draft in the file does not have to end in a blank line, and can simply end with the name of the last player in that draft.
    * Repeat the above format for each draft or mock draft.
 2. If the program was unable to ascertain a date or a time from a line meant to describe date and time, it will ask for the user to input the date or time described by that line according to a specific format. This process will repeat until all uncertainties are resolved.
+3. The program will try to identify instances in which a player's name in a mock draft may have been spelled differently than in the actual draft. Whenever such an instance is found, the program will ask the user whether or not the two names indeed describe the same player. The user should not find themselves having to confirm or deny the equivalence of the exact same pair of names more than once within one execution of the program. However, these adjustments will not persist through multiple executions, and so they will have to be made each time the program is run.
 ---
 Features beyond this point have not yet been implemented
 
-3. Checking for variations for names between drafts
 4. Displaying similarities of mock drafts to the actual draft by various measures
 * Planned for the future: ability to work with multiple draft classes (i.e. of different leagues or different years) in one execution

@@ -19,11 +19,15 @@ class DraftRanking():
         self.org_name = org_name
         self.time_of_update = time_of_update
         self.player_list = player_list
+        self.player_set = set(player_list)
 
     def correct_name(self, old_name, new_name):
         """Change a name in the player list. Assumes that each name in the list is unique"""
         index = self.player_list.index(old_name)
         self.player_list[index] = new_name
+        # update the set too
+        self.player_set.remove(old_name)
+        self.player_set.add(new_name)
 
     def is_official(self):
         """Indicates whether this DraftRanking is from an official organization"""
@@ -289,6 +293,54 @@ def read():
 
     return actual, mocks
 
+def standardize_variations(actual, mocks):
+    """
+    Use difflib's get_close_matches function to try
+    to adjust for variations of names in lists
+    """
+    # dict: keys are names in actual draft,
+    #       values are lists of variations of those names that appear in mock drafts
+    confirmed_matches = {}
+    # also have a dict(? there could be a better way) of confirmed non-matches
+    non_matches = {}
+
+    # Iterate through actual draft, iterate through list of mocks, checking if name is present.
+    # If not, check dict(, look for close matches, ask user, edit dict), edit mock
+    # - an alternate algorithm could be to make mocks the outer loop,
+    #   convert the player list into a set, and then loop the actual names
+    #   but I think BOTH approaches are O(m*n^2), where m = # of mocks and n = # of names
+    # - i GUESS DR could have an attribute player_set initialized with the instance
+    for i in actual.player_list: # perhaps a method should be used instead of accessing attribute directly
+        for j in mocks:
+            mock_names = j.player_set
+            if i not in mock_names:
+                key_exists = corrected = False
+                if i in confirmed_matches:
+                    key_exists = True
+                    for variation in confirmed_matches[i]:
+                        if variation in mock_names:
+                            j.correct_name(variation, i)
+                            corrected = True
+                            break
+                if not corrected:
+                    for close_match in get_close_matches(i, mock_names, n=len(mock_names)):
+                        if i not in non_matches or close_match not in non_matches[i]:
+                            response = input('Is ' + close_match + ' the same person as ' + i + '? (yes/no)\n').lower()
+                            if 'y' in response:
+                                if key_exists:
+                                    confirmed_matches[i].append(close_match)
+                                else:
+                                    confirmed_matches[i] = [close_match]
+                                j.correct_name(close_match, i)
+                                # key_exists = corrected = True This line should be unnecessary
+                                break
+                            if 'n' in response:
+                                if i in non_matches:
+                                    non_matches[i].append(close_match)
+                                else:
+                                    non_matches[i] = [close_match]
+
+
 def evaluate():
     """
     Given the actual draft order and various mock drafts,
@@ -296,22 +348,9 @@ def evaluate():
     """
     # get the actual draft and a list of mock drafts
     actual, mocks = read()
-    print(actual.org_name)
-    for i in mocks:
-        print(i.org_name)
 
-    # Use difflib's get_close_matches function to try to account for
-    # variations of names in lists
-    # For example: go through names in the actual draft and
-    # look for close but not exact matches in mock drafts.
-    # (actually, check for membership BEFORE finding close matches)
-    # for each match, ask the user if the two names are the same
-    # and if they are, change the name in the mock draft's list
-
-    # May want a dict recording matches confirmed by the user
-    # Since the dict should be capable of assigning multiple values to a key, I guess the values could be in a list
-    # Remember, names that aren't in the actual draft don't matter
-    # Iterate through actual draft, iterate through list of mocks, checking if name is present. If not, check dict(, look for close matches, ask user, edit dict), edit mock
+    # try to adjust names in the mock drafts to have the same spelling as in the actual draft
+    standardize_variations(actual, mocks)
 
     # Finding similarity scores:
     # (Right now, just using ratio())
