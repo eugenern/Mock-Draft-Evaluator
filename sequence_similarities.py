@@ -250,6 +250,8 @@ def form_drafts():
                 # is the last part of the args because its end is signified
                 # by a blank line, which also ends the args overall
                 if current_status is DraftAttr.PLAYER:
+                    # remove periods from names
+                    line = line.replace('.', '')
                     dr_args[current_status.value].append(line)
                 else:
                     if current_status is DraftAttr.TIME:
@@ -295,8 +297,11 @@ def read():
 
 def standardize_variations(actual, mocks):
     """
-    Use difflib's get_close_matches function to try
-    to adjust for variations of names in lists
+    Use difflib's get_close_matches function to try to adjust for variations of names in lists
+
+    Given an official draft and an iterable of mock drafts,
+    look for possible instances of variations in spelling of names
+    and adjust drafts so that a player's name is always spelled the same way
     """
     # dict: keys are names in actual draft,
     #       values are lists of variations of those names that appear in mock drafts
@@ -308,7 +313,7 @@ def standardize_variations(actual, mocks):
     # If not, check dict(, look for close matches, ask user, edit dict), edit mock
     # - an alternate algorithm could be to make mocks the outer loop,
     #   convert the player list into a set, and then loop the actual names
-    #   but I think BOTH approaches are O(m*n^2), where m = # of mocks and n = # of names
+    #   but I think BOTH approaches are O(m*n^3), where m = # of mocks and n = # of names
     # - i GUESS DR could have an attribute player_set initialized with the instance
     for i in actual.player_list: # perhaps a method should be used instead of accessing attribute directly
         for j in mocks:
@@ -324,7 +329,7 @@ def standardize_variations(actual, mocks):
                             break
                 if not corrected:
                     for close_match in get_close_matches(i, mock_names, n=len(mock_names)):
-                        if i not in non_matches or close_match not in non_matches[i]:
+                        if (i not in non_matches or close_match not in non_matches[i]) and close_match not in actual.player_list:
                             response = input('Is ' + close_match + ' the same person as ' + i + '? (yes/no)\n').lower()
                             if 'y' in response:
                                 if key_exists:
@@ -332,7 +337,7 @@ def standardize_variations(actual, mocks):
                                 else:
                                     confirmed_matches[i] = [close_match]
                                 j.correct_name(close_match, i)
-                                # key_exists = corrected = True This line should be unnecessary
+                                # key_exists = corrected = True This line is currently unnecessary
                                 break
                             if 'n' in response:
                                 if i in non_matches:
@@ -340,6 +345,18 @@ def standardize_variations(actual, mocks):
                                 else:
                                     non_matches[i] = [close_match]
 
+def sequence_matcher_similarity(actual, mocks):
+    """
+    Given an official draft and mock drafts, calculate and return
+    the similarity of each mock draft to the actual draft
+    as measured by SequenceMatcher's method ratio()
+    """
+    # Make a SequenceMatcher with the actual draft as the second seq
+    sm = SequenceMatcher(b=actual.player_list)
+
+    for m in mocks:
+        sm.set_seq1(m.player_list)
+        yield m, sm.ratio()
 
 def evaluate():
     """
@@ -352,10 +369,14 @@ def evaluate():
     # try to adjust names in the mock drafts to have the same spelling as in the actual draft
     standardize_variations(actual, mocks)
 
-    # Finding similarity scores:
-    # (Right now, just using ratio())
-    # Make a SequenceMatcher, assign actual draft to second seq, iterate through mocks
-    # --assign to first seq, use string format to print name and ratio
+    # have to think about how to design the code to make adding additional similarity measures
+    # a clean process and also how to display all the info in an easy-to-read way
+    ratios = sequence_matcher_similarity(actual, mocks)
+
+    print()
+    offset = max(len(i.org_name) for i in mocks)
+    for r in ratios:
+        print(('{:<'+str(offset)+'}').format(r[0].org_name), '{:.3%}'.format(r[1]))
 
 if __name__ == "__main__":
     evaluate()
