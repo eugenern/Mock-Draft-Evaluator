@@ -1,7 +1,6 @@
 # Mock-Draft-Evaluator
 Evaluate how close a mock draft's ranking was to the actual draft using some simple similarity metrics
 
-----
 ## Setup
 1. Make sure you have [Python 3](https://www.python.org/downloads/) installed and that you can run Python programs from your command line.
 2. Clone or download this repository or its files. You can also make your own text files describing various drafts and mock drafts to use with the program. The files must follow this format:
@@ -12,7 +11,6 @@ Evaluate how close a mock draft's ranking was to the actual draft using some sim
    * Leave a blank line to indicate the completion of the draft description, that is to say, that all players in the draft or mock draft have been listed on the preceding lines. The last draft in the file does not have to end in a blank line, and can simply end with the name of the last player in that draft.
    * Repeat the above format for each draft or mock draft.
 
-----
 ## Usage
 1. Run `sequence_similarities.py` with a text file containing the input as a command line argument. For example, one possible command could be `py sequence_similarities.py 2017_NBA_drafts`.
 2. If the program was unable to ascertain a date or a time from a line meant to describe date and time, it will ask for the user to input the date or time described by that line according to a specific format. This process will repeat until all uncertainties are resolved.
@@ -21,7 +19,6 @@ Evaluate how close a mock draft's ranking was to the actual draft using some sim
 
 Once the program has completed this processing of the input, it will display each mock draft by organization name and similarity score as measured by the SequenceMatcher class of Python's difflib module.
 
----
 ## Future Plans
 
 * Be able to work with multiple draft classes (i.e. of different leagues or different years) in one execution
