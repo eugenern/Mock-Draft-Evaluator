@@ -1,20 +1,25 @@
 """
-Compare lists of strings using Python's difflib and other strategies that may be more appropriate
-Original intent: Comparing 2017 NBA mock drafts to the actual 2017 NBA draft, retrieve similarity scores
-that can be used to help evaluate the accuracy of each of the mock drafts
+Compare lists of strings using Python's difflib and other strategies
+that may be more appropriate
+
+Original intent: Comparing 2017 NBA mock drafts to the actual 2017 NBA
+draft, retrieve similarity scores that can be used to help evaluate the
+accuracy of each of the mock drafts
 """
 
 #!/usr/bin/env python3
 
-from sys import stdin, stdout
-from difflib import SequenceMatcher, get_close_matches
 from datetime import datetime
+from difflib import SequenceMatcher, get_close_matches
 from enum import Enum, unique
+from sys import stdin, stdout
 import fileinput
+import rbo
 import re
 
 class DraftRanking():
     """A class describing drafts, whether actual or mock"""
+
     def __init__(self, org_name, time_of_update, player_list):
         self.org_name = org_name
         self.time_of_update = time_of_update
@@ -22,7 +27,8 @@ class DraftRanking():
         self.player_set = set(player_list)
 
     def correct_name(self, old_name, new_name):
-        """Change a name in the player list. Assumes that each name in the list is unique"""
+        """Change a name in the player list."""
+        # presumably, each name in the list is unique
         index = self.player_list.index(old_name)
         self.player_list[index] = new_name
         # update the set too
@@ -30,17 +36,17 @@ class DraftRanking():
         self.player_set.add(new_name)
 
     def is_official(self):
-        """Indicates whether this DraftRanking is from an official organization"""
-        return self.org_name.lower() in DraftRanking.offical_orgs()
+        """Return whether this DraftRanking is from an official org."""
+        return self.org_name.casefold() in DraftRanking.offical_orgs()
 
     @classmethod
     def offical_orgs(cls):
-        """Returns a set of orgs from whom a DraftRanking relects the official order"""
+        """Return a set of orgs whose drafts are official."""
         return {'nba', 'nfl', 'nhl'}
 
     @classmethod
     def attrs(cls):
-        """Returns a tuple of the attributes of DraftRanking"""
+        """Return a tuple of the attributes of DraftRanking."""
         return (DraftAttr.ORG, DraftAttr.TIME, DraftAttr.PLAYER)
 
     @classmethod
@@ -57,8 +63,11 @@ class DraftAttr(Enum):
 
 def guess_true_year(last_two_digits):
     """
-    If a year is written with only two digits, take an educated guess as to which century
-    Current approach: allow mock drafts to be made for up to 2 years in the future
+    If a year is written with only two digits,
+    take an educated guess as to which century
+
+    Current approach:
+    allow mock drafts to be made for up to 2 years in the future
     """
     try:
         if last_two_digits not in range(0, 100):
@@ -71,14 +80,15 @@ def guess_true_year(last_two_digits):
     return first_two*100 + last_two_digits
 
 def within_month(possible_day, month, year):
-    """Determine if a given day of a given month exists"""
+    """Determine if a given day of a given month exists."""
     if possible_day < 1 or possible_day > 31:
         return False
     if month in (1, 3, 5, 7, 8, 10, 12) or (month != 2 and possible_day <= 30) or possible_day <= 28:
         return True
     # by this point, only Feb 29 is a possible date
     if month == 2 and possible_day == 29:
-        # determine if year is a leap year (divisible by 4 but not by 100 unless also by 400)
+        # determine if year is a leap year, i.e.
+        # divisible by 4 but not by 100 unless also by 400
         if year % 4 == 0 and year % 100 != 0 or year % 400 == 0:
             return True
 
@@ -86,7 +96,8 @@ def within_month(possible_day, month, year):
 
 def string_to_YMD(date_string, dt_string):
     """
-    Attempt to find the year, month, and day from a string that describes a date and a time
+    Find year, month, and day from a string of date (and perhaps time).
+
     Assumptions:
      - slash(es) or hyphens will only be used to describe a date
      - Most common ways to represent date: "Word ##, ####"; "##/##/(##)##"; "####-##-##"
@@ -102,12 +113,13 @@ def string_to_YMD(date_string, dt_string):
     # Check for month in word form; this program will require the word to have at least 3 letters
     # Also attempt to find 1- or 2-digit numbers immediately before and after
     # Also tries to account for ordinal phrases such as "5th of November" or "May the 4th"
-    # but *not* if an ordinal number is written out, e.g. "first" or "thirtieth", forget that
+    # but *not* if an ordinal number is written out, e.g. "first" or "thirtieth", forget that noise
     m_pattern = r'(?<![:\d])(\d{1,2})?(?:[a-zA-Z]{2})?\s*(?:of)?\s*([a-zA-Z]{3,})\s*(?:the)?\s*(\d{1,2})?(?:[a-zA-Z]{2})?(?![:\d])'
     word_format = re.search(m_pattern, date_string)
     if word_format:
-        word = word_format[2].lower()
-        # if the month was spelled out entirely, finding it is O(1) time, if abbrev'ed, O(n)
+        word = word_format[2].casefold()
+        # if the month was spelled out in its entirety,
+        # finding it is O(1) time; if month was abbrev'ed, O(n)
         if word in all_months:
             month = all_months[word]
         else:
@@ -116,11 +128,12 @@ def string_to_YMD(date_string, dt_string):
                     month = all_months[m]
                     break
 
-        # if month was successfully found, day should be immediately before or after it
+        # if month was successfully found, day should be immediately
+        # before or after it
         if month and any((word_format[1], word_format[3])):
             if not all((word_format[1], word_format[3])):
                 day = int(word_format[3]) if word_format[3] else int(word_format[1])
-                # if day was also successfully found, only year should remain
+                # if day has also been found, only year should remain
                 year_string = date_string[:word_format.start()] + date_string[word_format.end():]
                 find_year = re.findall(r'(?<![:\d])\d{2}(?:\d{2})?(?![:\d])', year_string)
                 # there should only be one match
@@ -132,7 +145,9 @@ def string_to_YMD(date_string, dt_string):
                     if within_month(day, month, year):
                         return year, month, day
             else:
-                # with two 1-/2-digit numbers to consider, see if only one of them can be the day
+                # with two 1- or 2-digit numbers to consider, see if
+                # only one of them can be the day, knowing month and
+                # positing the other number to be the year
                 nums = tuple(int(word_format[1]), int(word_format[3]))
                 for i in range(len(nums)):
                     year = nums[i]
@@ -143,7 +158,7 @@ def string_to_YMD(date_string, dt_string):
     # now check for slashes or hyphens
     match = re.search(r'(\d+)[/.-](\d+)[/.-](\d+)', date_string)
     first, second, third = (int(i) for i in match.groups())
-    # try to eliminate/confirm possibilities out of formats M->D->Y, D->M->Y, Y->M->D
+    # try to eliminate/confirm possibilities of formats MDY, DMY, YMD
     if second > 12: # then only M->D->Y is possible
         month, day, year = first, second, third if third > 99 else guess_true_year(third)
         if within_month(day, month, year):
@@ -158,7 +173,8 @@ def string_to_YMD(date_string, dt_string):
         if within_month(third, month, first_as_year) and not within_month(first, month, third_as_year):
             return first_as_year, month, third
     else:
-        # by now, the numbers are either ambiguous or impossible with the three formats
+        # by now, the program was unable to unambiguously find the date
+        # and will ask the user to input it manually
         print('Could not determine date from the following line:')
         print(dt_string)
         print('Please input date in the following format: YYYYY-MM-DD')
@@ -170,11 +186,13 @@ def string_to_YMD(date_string, dt_string):
 
 def string_to_HMS(dt_string):
     """
-    Attempt to find the hour, minute, and second from a string that describes a date and a time
+    Find hour, minute, and second from a string of date and time.
+
     Assumptions:
      - colon(s) will and only will be used to describe a time
      - standard hour-minute-second-am/pm format
-     - hour and minute must be specified, while second and am/pm specification is optional
+     - hour and minute must be specified, while
+       second and am/pm specification is optional
     """
     hour = minute = second = 0
     date_string = dt_string
@@ -186,9 +204,11 @@ def string_to_HMS(dt_string):
         hour = int(match[1])
         minute = int(match[2])
 
-    # if colons didn't work, just give up and warn that time could not be extracted from dt_string
-    # raise an Exception, show dt_string and ask user to manually input time
-    # I'd like to also show org name, but that'd require restructuring this program
+    # if looking for colons didn't work, just give up and warn that
+    # time could not be extracted from dt_string
+    # raise an Exception, show dt_string and ask user to input the time
+    # I'd like to also show org name, but cannot do that with the way
+    # the program is currently structured
     except TypeError as t_e:
         if 'NoneType' in t_e.args[0]:
             print('Could not determine time from the following line:')
@@ -209,7 +229,7 @@ def string_to_HMS(dt_string):
         # if no am/pm is found, just assume the hour is good as is
         # otherwise, watch out for trickery like 12am/pm
         if match[4]:
-            m = match[4].lower()
+            m = match[4].casefold()
             if hour == 12 and 'a' in m:
                 hour = 0
             if hour < 12 and 'p' in m:
@@ -221,9 +241,7 @@ def string_to_HMS(dt_string):
     return hour, minute, second, date_string
 
 def string_to_datetime(dt_string):
-    """
-    Attempt to create a datetime object using a string that describes a date and a time
-    """
+    """Given a string describing date and time, return a datetime."""
     # since time should be easier to figure out than date,
     # find time and then take it out of the input for finding date
     hour, minute, second, date_string = string_to_HMS(dt_string)
@@ -246,8 +264,8 @@ def form_drafts():
         for line in f:
             line = line.rstrip('\n')
             if line:
-                # right now, the assumption is that the list of players
-                # is the last part of the args because its end is signified
+                # for now, the assumption is that the player list is
+                # the last of the args because its end is signified
                 # by a blank line, which also ends the args overall
                 if current_status is DraftAttr.PLAYER:
                     # remove periods from names
@@ -255,7 +273,7 @@ def form_drafts():
                     dr_args[current_status.value].append(line)
                 else:
                     if current_status is DraftAttr.TIME:
-                        # Try to convert the string into a datetime object
+                        # convert the string into a datetime object
                         arg = string_to_datetime(line)
                     else:
                         arg = line
@@ -265,7 +283,8 @@ def form_drafts():
                     # go to next status
                     current_status = statuses[current_status.value + 1]
 
-            # a blank line indicates that all args for the current DraftRanking are complete
+            # a blank line indicates that all args for the current
+            # DraftRanking are complete
             else:
                 yield DraftRanking(*dr_args)
                 # wipe dr_args clean for another DraftRanking
@@ -284,29 +303,30 @@ def read():
     actual, mocks = None, []
     for dr in form_drafts():
         if dr.is_official():
-            try:
-                if actual:
-                    raise Exception('Currently, this program can only work with one league and draft class!')
-            except Exception as e:
-                raise e
+            if actual:
+                raise Exception('Currently, this program can only work with one league and draft class!')
             actual = dr
         else:
             mocks.append(dr)
 
+    if not actual:
+        raise Exception('No official draft found!')
+    if not mocks:
+        raise Exception('No mock drafts found!')
     return actual, mocks
 
 def standardize_variations(actual, mocks):
     """
-    Use difflib's get_close_matches function to try to adjust for variations of names in lists
+    Use difflib's get_close_matches() to account for name variations
 
     Given an official draft and an iterable of mock drafts,
-    look for possible instances of variations in spelling of names
-    and adjust drafts so that a player's name is always spelled the same way
+    look for possible instances of variations in spelling of names and
+    adjust drafts so that each name is always spelled the same way
     """
-    # dict: keys are names in actual draft,
-    #       values are lists of variations of those names that appear in mock drafts
+    # dict: key is a name in the actual draft,
+    #       value is a list of variations of that name found in mocks
     confirmed_matches = {}
-    # also have a dict(? there could be a better way) of confirmed non-matches
+    # a dict(? there may be a better way) of user-confirmed non-matches
     non_matches = {}
 
     # Iterate through actual draft, iterate through list of mocks, checking if name is present.
@@ -330,14 +350,15 @@ def standardize_variations(actual, mocks):
                 if not corrected:
                     for close_match in get_close_matches(i, mock_names, n=len(mock_names)):
                         if (i not in non_matches or close_match not in non_matches[i]) and close_match not in actual.player_list:
-                            response = input('Is ' + close_match + ' the same person as ' + i + '? (yes/no)\n').lower()
+                            response = input('Is ' + close_match + ' the same person as ' + i + '? (yes/no)\n').casefold()
                             if 'y' in response:
                                 if key_exists:
                                     confirmed_matches[i].append(close_match)
                                 else:
                                     confirmed_matches[i] = [close_match]
                                 j.correct_name(close_match, i)
-                                # key_exists = corrected = True This line is currently unnecessary
+                                # This line is currently unnecessary:
+                                # key_exists = corrected = True
                                 break
                             if 'n' in response:
                                 if i in non_matches:
@@ -366,11 +387,13 @@ def evaluate():
     # get the actual draft and a list of mock drafts
     actual, mocks = read()
 
-    # try to adjust names in the mock drafts to have the same spelling as in the actual draft
+    # try to adjust names in the mock drafts to have the same spelling
+    # as in the actual draft
     standardize_variations(actual, mocks)
 
-    # have to think about how to design the code to make adding additional similarity measures
-    # a clean process and also how to display all the info in an easy-to-read way
+    # have to think about how to design the code to make adding
+    # additional similarity measures a clean process and also how to
+    # display all the info in an easy-to-read way
     ratios = sequence_matcher_similarity(actual, mocks)
 
     print()
