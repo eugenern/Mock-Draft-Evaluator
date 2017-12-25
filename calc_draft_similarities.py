@@ -42,6 +42,7 @@ class DraftRanking():
     @classmethod
     def offical_orgs(cls):
         """Return a set of orgs whose drafts are official."""
+        # Can be updated as necessary
         return {'nba', 'nfl', 'nhl'}
 
     @classmethod
@@ -368,9 +369,9 @@ def standardize_variations(actual, mocks):
 
 def sequence_matcher_similarity(actual, mocks):
     """
-    Given an official draft and mock drafts, calculate and return
-    the similarity of each mock draft to the actual draft
-    as measured by SequenceMatcher's method ratio()
+    Given an official draft and mock drafts, calculate and return the
+    similarity of each mock draft to the actual draft as measured by
+    SequenceMatcher's method ratio()
     """
     # Make a SequenceMatcher with the actual draft as the second seq
     sm = SequenceMatcher(b=actual.player_list)
@@ -378,6 +379,51 @@ def sequence_matcher_similarity(actual, mocks):
     for m in mocks:
         sm.set_seq1(m.player_list)
         yield m, sm.ratio()
+
+def rbo_similarity(actual, mocks, p=0):
+    """
+    Given an official draft and mock drafts, calculate and return the
+    similarity of each mock draft to the actual draft as measured by
+    rank biased overlap
+    """
+    # if a value for p is not provided, use suggestion by RBO creators
+    # of (1 - 1/k) where k is the length of the prefix
+    if not p:
+        p = 1 - 1/len(actual.player_list)
+    for m in mocks:
+        yield m, rbo.score(actual.player_list, m.player_list)
+
+def display_results(mock_names, measure_names, measures):
+    """
+    Extremely rough code for displaying the orgs and their similarity scores in a table
+
+    Able to accomodate for any number of rank similarity measures (as
+    long the output window is wide enough to display all their names)
+    """
+    # for each measure, convert to a string the greater length between
+    # 7 and the measure's name as it will be displayed in the table
+    col_lengths = list((name, str(max(len(name), 7))) for name in measure_names)
+    # length of the first column: greatest length between all org names
+    # as well as 'Organization' (the column name)
+    offset = max(max(len(name) for name in mock_names), len('Organization'))
+    # number of characters in each line taking into account offset, all
+    # column lengths, and the number of pipes (used as column dividers)
+    # in each line
+    line_length = offset + sum(int(i[1]) for i in col_lengths) + 2 + len(col_lengths)
+
+    print()
+    print('-' * line_length)
+    # table headers: 'Organization' and each measure name
+    print(('|{:^'+str(offset)+'}').format('Organization'), *(('{:^'+i[1]+'}').format(i[0]) for i in col_lengths), sep='|', end='|\n')
+    print('-' * line_length)
+    # create the rows of the table, one row for each mock draft
+    for m_n, ms in zip(mock_names, zip(*measures)):
+        # NOTE: assumes mocks appear in same order in each similarity generator
+        # if that changes in the future, this will have to as well
+
+        # org name followed by each similarity score for the mock draft
+        print(('|{:<'+str(offset)+'}').format(m_n), *(('{:>'+c_l[1]+'.3%}').format(m[1]) for c_l, m in zip(col_lengths, ms)), sep='|', end='|\n')
+    print('-' * line_length)
 
 def evaluate():
     """
@@ -395,11 +441,13 @@ def evaluate():
     # additional similarity measures a clean process and also how to
     # display all the info in an easy-to-read way
     ratios = sequence_matcher_similarity(actual, mocks)
+    rbo_scores = rbo_similarity(actual, mocks)
 
-    print()
-    offset = max(len(i.org_name) for i in mocks)
-    for r in ratios:
-        print(('{:<'+str(offset)+'}').format(r[0].org_name), '{:.3%}'.format(r[1]))
+    mock_names = tuple(i.org_name for i in mocks)
+    measure_names = ('SequenceMatcher', 'RBO score')
+    measures = (ratios, rbo_scores)
+
+    display_results(mock_names, measure_names, measures)
 
 if __name__ == "__main__":
     evaluate()

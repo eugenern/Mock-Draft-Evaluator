@@ -32,6 +32,7 @@ def score(l1, l2, p=0.0):
     l, L = ll
     if s == 0: return 0
     if not p:
+        # letting p be 0 would screw up some calculations
         if l == 1: return 1 if S == L else 0
         p = 1 - 1/l
 
