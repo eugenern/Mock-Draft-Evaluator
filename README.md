@@ -17,10 +17,11 @@ Evaluate how close a mock draft's ranking was to the actual draft using some sim
 3. The program will try to identify instances in which a player's name in a mock draft may have been spelled differently than in the actual draft. Whenever such an instance is found, the program will ask the user whether or not the two names indeed describe the same player. The user should not find themselves having to confirm or deny the equivalence of the exact same pair of names more than once within one execution of the program. However, these adjustments will not persist through multiple executions, so they will have to be made each time the program is run.
    * Note that periods are removed from names automatically, and so the program will not need to ask about a pair of names whose spellings only differ by the presence or absence of periods.
 
-Once the program has completed this processing of the input, it will display each mock draft by organization name and similarity score as measured by the SequenceMatcher class of Python's difflib module.
+Once the program has completed this processing of the input, it will display each mock draft by organization name and similarity scores as measured by the SequenceMatcher class of Python's difflib module and an implementation of rank-biased overlap (a top-weighted, convergent similarity measure for indefinite rankings).
 
 ## Future Plans
 
-* Be able to work with multiple draft classes (i.e. of different leagues or different years) in one execution
-* Add different methods for measuring similarity
+* Be able to work with multiple draft classes (i.e. of different leagues and/or different years) in one execution
+* Add more methods for measuring similarity
 * Improve the display of results to be more readable and informative
+* (Possibly) put information about drafts and their similarity scores into a database
