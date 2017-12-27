@@ -393,7 +393,7 @@ def rbo_similarity(actual, mocks, p=0):
     for m in mocks:
         yield m, rbo.score(actual.player_list, m.player_list)
 
-def display_results(mock_names, measure_names, measures):
+def display_results(measure_names, measures):
     """
     Extremely rough code for displaying the orgs and their similarity scores in a table
 
@@ -405,7 +405,7 @@ def display_results(mock_names, measure_names, measures):
     col_lengths = list((name, str(max(len(name), 7))) for name in measure_names)
     # length of the first column: greatest length between all org names
     # as well as 'Organization' (the column name)
-    offset = max(max(len(name) for name in mock_names), len('Organization'))
+    offset = max(max(len(name) for name in measures[0]), len('Organization'))
     # number of characters in each line taking into account offset, all
     # column lengths, and the number of pipes (used as column dividers)
     # in each line
@@ -417,12 +417,9 @@ def display_results(mock_names, measure_names, measures):
     print(('|{:^'+str(offset)+'}').format('Organization'), *(('{:^'+i[1]+'}').format(i[0]) for i in col_lengths), sep='|', end='|\n')
     print('-' * line_length)
     # create the rows of the table, one row for each mock draft
-    for m_n, ms in zip(mock_names, zip(*measures)):
-        # NOTE: assumes mocks appear in same order in each similarity generator
-        # if that changes in the future, this will have to as well
-
+    for draft in measures[0]:
         # org name followed by each similarity score for the mock draft
-        print(('|{:<'+str(offset)+'}').format(m_n), *(('{:>'+c_l[1]+'.3%}').format(m[1]) for c_l, m in zip(col_lengths, ms)), sep='|', end='|\n')
+        print(('|{:<'+str(offset)+'}').format(draft), *(('{:>'+c_l[1]+'.3%}').format(m[draft]) for c_l, m in zip(col_lengths, measures)), sep='|', end='|\n')
     print('-' * line_length)
 
 def evaluate():
@@ -440,14 +437,17 @@ def evaluate():
     # have to think about how to design the code to make adding
     # additional similarity measures a clean process and also how to
     # display all the info in an easy-to-read way
-    ratios = sequence_matcher_similarity(actual, mocks)
-    rbo_scores = rbo_similarity(actual, mocks)
+    ratios = dict((i.org_name, j) for i, j in sequence_matcher_similarity(actual, mocks))
+    rbo_scores = dict((i.org_name, j) for i, j in rbo_similarity(actual, mocks))
 
-    mock_names = tuple(i.org_name for i in mocks)
+    # kinda feels like these two variables should be linked together or
+    # something, but it also seems unnecessary to do so
     measure_names = ('SequenceMatcher', 'RBO score')
     measures = (ratios, rbo_scores)
 
-    display_results(mock_names, measure_names, measures)
+    # probably wanna have display_results include a 'time of update'
+    # column so multiple mocks from same org can be compared
+    display_results(measure_names, measures)
 
 if __name__ == "__main__":
     evaluate()
