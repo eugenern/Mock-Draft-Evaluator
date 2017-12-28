@@ -9,13 +9,15 @@ accuracy of each of the mock drafts
 
 #!/usr/bin/env python3
 
+from collections import defaultdict
 from datetime import datetime
 from difflib import SequenceMatcher, get_close_matches
 from enum import Enum, unique
 from sys import stdin, stdout
 import fileinput
-import rbo
 import re
+
+import rbo
 
 class DraftRanking():
     """A class describing drafts, whether actual or mock"""
@@ -52,12 +54,14 @@ class DraftRanking():
 
     @classmethod
     def init_args_template(cls):
+        """Return a 'blank' list of DraftRanking constructor args."""
         dr_args = [None for i in range(len(DraftAttr))]
         dr_args[DraftAttr.PLAYER.value] = []
         return dr_args
 
 @unique
 class DraftAttr(Enum):
+    """Represention of DraftRanking constructor args as list indices"""
     ORG = 0
     TIME = 1
     PLAYER = 2
@@ -73,18 +77,20 @@ def guess_true_year(last_two_digits):
     try:
         if last_two_digits not in range(0, 100):
             raise ValueError('The program screwed up!')
-    except ValueError as v:
-        raise v
+    except ValueError as v_e:
+        raise v_e
 
     current_year = datetime.today().year
-    first_two = current_year // 100 if last_two_digits <= (current_year%100 + 2) else current_year//100 - 1
+    first_two = (current_year // 100 if last_two_digits <= (current_year%100 + 2)
+                 else current_year//100 - 1)
     return first_two*100 + last_two_digits
 
 def within_month(possible_day, month, year):
     """Determine if a given day of a given month exists."""
     if possible_day < 1 or possible_day > 31:
         return False
-    if month in (1, 3, 5, 7, 8, 10, 12) or (month != 2 and possible_day <= 30) or possible_day <= 28:
+    if (month in (1, 3, 5, 7, 8, 10, 12) or (month != 2 and possible_day <= 30)
+            or possible_day <= 28):
         return True
     # by this point, only Feb 29 is a possible date
     if month == 2 and possible_day == 29:
@@ -106,11 +112,14 @@ def string_to_YMD(date_string, dt_string):
      - Presumably, the only reason a 4-digit number would appear is to represent the year
      - Possible formats involving slashes: (M)M/(D)D/(YY)YY, (D)D/(M)M/(YY)YY, (YY)YY/(M)M/(D)D
     """
-    all_months = dict(january=1, february=2, march=3, april=4, may=5, june=6, july=7, august=8, september=9, october=10, november=11, december=12)
+    all_months = dict(
+        january=1, february=2, march=3, april=4, may=5, june=6, july=7,
+        august=8, september=9, october=10, november=11, december=12
+        )
     year = month = day = 0
 
     # If you try to break this, it will break.
-    
+
     # Check for month in word form; this program will require the word to have at least 3 letters
     # Also attempt to find 1- or 2-digit numbers immediately before and after
     # Also tries to account for ordinal phrases such as "5th of November" or "May the 4th"
@@ -124,9 +133,9 @@ def string_to_YMD(date_string, dt_string):
         if word in all_months:
             month = all_months[word]
         else:
-            for m in all_months:
-                if word in m:
-                    month = all_months[m]
+            for month_name in all_months:
+                if word in month_name:
+                    month = all_months[month_name]
                     break
 
         # if month was successfully found, day should be immediately
@@ -149,12 +158,14 @@ def string_to_YMD(date_string, dt_string):
                 # with two 1- or 2-digit numbers to consider, see if
                 # only one of them can be the day, knowing month and
                 # positing the other number to be the year
-                nums = tuple(int(word_format[1]), int(word_format[3]))
-                for i in range(len(nums)):
-                    year = nums[i]
-                    day = nums[len(nums) - 1 - i]
-                    if within_month(day, month, guess_true_year(year)) and not within_month(year, month, guess_true_year(day)):
-                        return guess_true_year(year), month, day
+                first, second = int(word_format[1]), int(word_format[3])
+                first_as_year = guess_true_year(first)
+                second_as_year = guess_true_year(second)
+                if (within_month(first, month, second_as_year)
+                        is not within_month(second, month, first_as_year)):
+                    return (second_as_year, month, first
+                            if within_month(first, month, second_as_year)
+                            else first_as_year, month, second)
 
     # now check for slashes or hyphens
     match = re.search(r'(\d+)[/.-](\d+)[/.-](\d+)', date_string)
@@ -169,21 +180,22 @@ def string_to_YMD(date_string, dt_string):
         month = second
         first_as_year = first if first > 99 else guess_true_year(first)
         third_as_year = third if third > 99 else guess_true_year(third)
-        if within_month(first, month, third_as_year) and not within_month(third, month, first_as_year):
-            return third_as_year, month, first
-        if within_month(third, month, first_as_year) and not within_month(first, month, third_as_year):
-            return first_as_year, month, third
-    else:
-        # by now, the program was unable to unambiguously find the date
-        # and will ask the user to input it manually
-        print('Could not determine date from the following line:')
-        print(dt_string)
-        print('Please input date in the following format: YYYYY-MM-DD')
-        stdout.flush()
-        date = stdin.readline().rstrip('\n')
-        print()
-        year, month, day = (int(i) for i in date.split('-'))
-        return year, month, day
+        if (within_month(first, month, third_as_year)
+                is not within_month(third, month, first_as_year)):
+            return (third_as_year, month, first
+                    if within_month(first, month, third_as_year)
+                    else first_as_year, month, third)
+
+    # by now, the program was unable to unambiguously find the date and
+    # will ask the user to input it manually
+    print('Could not determine date from the following line:')
+    print(dt_string)
+    print('Please input date in the following format: YYYYY-MM-DD')
+    stdout.flush()
+    date = stdin.readline().rstrip('\n')
+    print()
+    year, month, day = (int(i) for i in date.split('-'))
+    return year, month, day
 
 def string_to_HMS(dt_string):
     """
@@ -200,8 +212,10 @@ def string_to_HMS(dt_string):
 
     # If you try to break this, it will break.
     try:
-        match = re.search(r'(\d{1,2}):(\d{2})(?::(\d{2}))?(?!\d)(?:\s*([aApP]\.?[mM]\.?))?', dt_string)
-        
+        match = re.search(
+            r'(\d{1,2}):(\d{2})(?::(\d{2}))?(?!\d)(?:\s*([aApP]\.?[mM]\.?))?',
+            dt_string)
+
         hour = int(match[1])
         minute = int(match[2])
 
@@ -230,10 +244,10 @@ def string_to_HMS(dt_string):
         # if no am/pm is found, just assume the hour is good as is
         # otherwise, watch out for trickery like 12am/pm
         if match[4]:
-            m = match[4].casefold()
-            if hour == 12 and 'a' in m:
+            am_pm = match[4].casefold()
+            if hour == 12 and 'a' in am_pm:
                 hour = 0
-            if hour < 12 and 'p' in m:
+            if hour < 12 and 'p' in am_pm:
                 hour += 12
 
         # take the time out of dt_string
@@ -261,8 +275,8 @@ def form_drafts():
     statuses = DraftRanking.attrs()
     current_status = statuses[0]
     dr_args = DraftRanking.init_args_template()
-    with fileinput.input() as f:
-        for line in f:
+    with fileinput.input() as f_i:
+        for line in f_i:
             line = line.rstrip('\n')
             if line:
                 # for now, the assumption is that the player list is
@@ -293,8 +307,8 @@ def form_drafts():
                 # reset current_status
                 current_status = statuses[0]
 
-        # hacky way to create final DR in the file
-        yield DraftRanking(*dr_args)
+    # hacky way to create final DR in the file
+    yield DraftRanking(*dr_args)
 
 def read():
     """
@@ -302,13 +316,13 @@ def read():
     Returns DraftRankings in this format: Actual, [Mocks]
     """
     actual, mocks = None, []
-    for dr in form_drafts():
-        if dr.is_official():
+    for draft in form_drafts():
+        if draft.is_official():
             if actual:
-                raise Exception('Currently, this program can only work with one league and draft class!')
-            actual = dr
+                raise Exception('This program currently can only work with one league/draft class!')
+            actual = draft
         else:
-            mocks.append(dr)
+            mocks.append(draft)
 
     if not actual:
         raise Exception('No official draft found!')
@@ -325,10 +339,10 @@ def standardize_variations(actual, mocks):
     adjust drafts so that each name is always spelled the same way
     """
     # dict: key is a name in the actual draft,
-    #       value is a list of variations of that name found in mocks
-    confirmed_matches = {}
+    #       value is a set of variations of that name found in mocks
+    confirmed_matches = defaultdict(set)
     # a dict(? there may be a better way) of user-confirmed non-matches
-    non_matches = {}
+    non_matches = defaultdict(set)
 
     # Iterate through actual draft, iterate through list of mocks, checking if name is present.
     # If not, check dict(, look for close matches, ask user, edit dict), edit mock
@@ -336,36 +350,31 @@ def standardize_variations(actual, mocks):
     #   convert the player list into a set, and then loop the actual names
     #   but I think BOTH approaches are O(m*n^3), where m = # of mocks and n = # of names
     # - i GUESS DR could have an attribute player_set initialized with the instance
-    for i in actual.player_list: # perhaps a method should be used instead of accessing attribute directly
+    for i in actual.player_list: # Should there be a method instead of accessing attribute directly?
         for j in mocks:
             mock_names = j.player_set
             if i not in mock_names:
-                key_exists = corrected = False
-                if i in confirmed_matches:
-                    key_exists = True
-                    for variation in confirmed_matches[i]:
-                        if variation in mock_names:
-                            j.correct_name(variation, i)
-                            corrected = True
-                            break
+                corrected = False
+                for variation in confirmed_matches[i]:
+                    if variation in mock_names:
+                        j.correct_name(variation, i)
+                        corrected = True
+                        break
                 if not corrected:
                     for close_match in get_close_matches(i, mock_names, n=len(mock_names)):
-                        if (i not in non_matches or close_match not in non_matches[i]) and close_match not in actual.player_list:
-                            response = input('Is ' + close_match + ' the same person as ' + i + '? (yes/no)\n').casefold()
+                        if (close_match not in non_matches[i]
+                                and close_match not in actual.player_set):
+                            response = input('Is ' + close_match
+                                             + ' the same person as ' + i
+                                             + '? (yes/no)\n').casefold()
                             if 'y' in response:
-                                if key_exists:
-                                    confirmed_matches[i].append(close_match)
-                                else:
-                                    confirmed_matches[i] = [close_match]
+                                confirmed_matches[i].add(close_match)
                                 j.correct_name(close_match, i)
                                 # This line is currently unnecessary:
-                                # key_exists = corrected = True
+                                # corrected = True
                                 break
                             if 'n' in response:
-                                if i in non_matches:
-                                    non_matches[i].append(close_match)
-                                else:
-                                    non_matches[i] = [close_match]
+                                non_matches[i].add(close_match)
 
 def sequence_matcher_similarity(actual, mocks):
     """
@@ -374,11 +383,11 @@ def sequence_matcher_similarity(actual, mocks):
     SequenceMatcher's method ratio()
     """
     # Make a SequenceMatcher with the actual draft as the second seq
-    sm = SequenceMatcher(b=actual.player_list)
+    s_m = SequenceMatcher(b=actual.player_list)
 
-    for m in mocks:
-        sm.set_seq1(m.player_list)
-        yield m, sm.ratio()
+    for mock in mocks:
+        s_m.set_seq1(mock.player_list)
+        yield mock, s_m.ratio()
 
 def rbo_similarity(actual, mocks, p=0):
     """
@@ -390,8 +399,8 @@ def rbo_similarity(actual, mocks, p=0):
     # of (1 - 1/k) where k is the length of the prefix
     if not p:
         p = 1 - 1/len(actual.player_list)
-    for m in mocks:
-        yield m, rbo.score(actual.player_list, m.player_list)
+    for mock in mocks:
+        yield mock, rbo.score(actual.player_list, mock.player_list)
 
 def display_results(measure_names, measures):
     """
@@ -414,12 +423,16 @@ def display_results(measure_names, measures):
     print()
     print('-' * line_length)
     # table headers: 'Organization' and each measure name
-    print(('|{:^'+str(offset)+'}').format('Organization'), *(('{:^'+i[1]+'}').format(i[0]) for i in col_lengths), sep='|', end='|\n')
+    print(('|{:^'+str(offset)+'}').format('Organization'),
+          *(('{:^'+i[1]+'}').format(i[0]) for i in col_lengths),
+          sep='|', end='|\n')
     print('-' * line_length)
     # create the rows of the table, one row for each mock draft
     for draft in measures[0]:
         # org name followed by each similarity score for the mock draft
-        print(('|{:<'+str(offset)+'}').format(draft), *(('{:>'+c_l[1]+'.3%}').format(m[draft]) for c_l, m in zip(col_lengths, measures)), sep='|', end='|\n')
+        print(('|{:<'+str(offset)+'}').format(draft),
+              *(('{:>'+c_l[1]+'.3%}').format(m[draft]) for c_l, m in zip(col_lengths, measures)),
+              sep='|', end='|\n')
     print('-' * line_length)
 
 def evaluate():
