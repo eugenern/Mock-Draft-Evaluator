@@ -13,7 +13,7 @@ Evaluate how close a mock draft's ranking was to the actual draft using some sim
 
 ## Usage
 1. Run `sequence_similarities.py` with a text file containing the input as a command line argument. For example, one possible command could be `py sequence_similarities.py 2017_NBA_drafts`.
-2. If the program was unable to ascertain a date or a time from a line meant to describe date and time, it will ask for the user to input the date or time described by that line according to a specific format. This process will repeat until all uncertainties are resolved.
+2. If the program was unable to ascertain a date or a time from a line meant to describe date and time, it will ask for the user to input the date or time described by that line according to a specific format that generally conforms to ISO 8061. This process will repeat until all uncertainties are resolved.
 3. The program will try to identify instances in which a player's name in a mock draft may have been spelled differently than in the actual draft. Whenever such an instance is found, the program will ask the user whether or not the two names indeed describe the same player. The user should not find themselves having to confirm or deny the equivalence of the exact same pair of names more than once within one execution of the program. However, these adjustments will not persist through multiple executions, so they will have to be made each time the program is run.
    * Note that periods are removed from names automatically, and so the program will not need to ask about a pair of names whose spellings only differ by the presence or absence of periods.
 

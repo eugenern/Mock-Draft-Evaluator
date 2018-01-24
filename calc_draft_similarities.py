@@ -76,7 +76,8 @@ def guess_true_year(last_two_digits):
     """
     try:
         if last_two_digits not in range(0, 100):
-            raise ValueError('The program screwed up!')
+            raise ValueError('The program screwed up! {} should be between 0 and 100'
+                             .format(last_two_digits))
     except ValueError as v_e:
         raise v_e
 
@@ -89,8 +90,8 @@ def within_month(possible_day, month, year):
     """Determine if a given day of a given month exists."""
     if possible_day < 1 or possible_day > 31:
         return False
-    if (month in (1, 3, 5, 7, 8, 10, 12) or (month != 2 and possible_day <= 30)
-            or possible_day <= 28):
+    if (possible_day <= 28 or (month != 2 and possible_day <= 30)
+            or month in (1, 3, 5, 7, 8, 10, 12)):
         return True
     # by this point, only Feb 29 is a possible date
     if month == 2 and possible_day == 29:
@@ -319,7 +320,7 @@ def read():
     for draft in form_drafts():
         if draft.is_official():
             if actual:
-                raise Exception('This program currently can only work with one league/draft class!')
+                raise Exception('This program currently only works with one league/draft class!')
             actual = draft
         else:
             mocks.append(draft)
@@ -364,9 +365,8 @@ def standardize_variations(actual, mocks):
                     for close_match in get_close_matches(i, mock_names, n=len(mock_names)):
                         if (close_match not in non_matches[i]
                                 and close_match not in actual.player_set):
-                            response = input('Is ' + close_match
-                                             + ' the same person as ' + i
-                                             + '? (yes/no)\n').casefold()
+                            response = input('Is {} the same person as {}? (yes/no)\n'
+                                             .format(close_match, i)).casefold()
                             if 'y' in response:
                                 confirmed_matches[i].add(close_match)
                                 j.correct_name(close_match, i)
@@ -409,29 +409,29 @@ def display_results(measure_names, measures):
     Able to accomodate for any number of rank similarity measures (as
     long the output window is wide enough to display all their names)
     """
-    # for each measure, convert to a string the greater length between
-    # 7 and the measure's name as it will be displayed in the table
-    col_lengths = list((name, str(max(len(name), 7))) for name in measure_names)
+    # for each measure, record the measure's name as it will be shown
+    # in the table and the name's length or 7, whichever is greater
+    col_lengths = list((name, max(len(name), 7)) for name in measure_names)
     # length of the first column: greatest length between all org names
     # as well as 'Organization' (the column name)
     offset = max(max(len(name) for name in measures[0]), len('Organization'))
     # number of characters in each line taking into account offset, all
     # column lengths, and the number of pipes (used as column dividers)
     # in each line
-    line_length = offset + sum(int(i[1]) for i in col_lengths) + 2 + len(col_lengths)
+    line_length = offset + sum(i[1] for i in col_lengths) + 2 + len(col_lengths)
 
     print()
     print('-' * line_length)
     # table headers: 'Organization' and each measure name
-    print(('|{:^'+str(offset)+'}').format('Organization'),
-          *(('{:^'+i[1]+'}').format(i[0]) for i in col_lengths),
+    print(('|{:^{}}').format('Organization', offset),
+          *(('{:^{}}').format(i[0], i[1]) for i in col_lengths),
           sep='|', end='|\n')
     print('-' * line_length)
     # create the rows of the table, one row for each mock draft
     for draft in measures[0]:
         # org name followed by each similarity score for the mock draft
-        print(('|{:<'+str(offset)+'}').format(draft),
-              *(('{:>'+c_l[1]+'.3%}').format(m[draft]) for c_l, m in zip(col_lengths, measures)),
+        print(('|{:<{}}').format(draft, offset),
+              *(('{:>{}.3%}').format(m[draft], c_l[1]) for c_l, m in zip(col_lengths, measures)),
               sep='|', end='|\n')
     print('-' * line_length)
 
