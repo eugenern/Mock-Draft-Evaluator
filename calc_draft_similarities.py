@@ -164,28 +164,29 @@ def string_to_YMD(date_string, dt_string):
                 second_as_year = guess_true_year(second)
                 if (within_month(first, month, second_as_year)
                         is not within_month(second, month, first_as_year)):
-                    return (second_as_year, month, first
+                    return ((second_as_year, month, first)
                             if within_month(first, month, second_as_year)
-                            else first_as_year, month, second)
+                            else (first_as_year, month, second))
 
     # now check for slashes or hyphens
     match = re.search(r'(\d+)[/.-](\d+)[/.-](\d+)', date_string)
-    first, second, third = (int(i) for i in match.groups())
-    # try to eliminate/confirm possibilities of formats MDY, DMY, YMD
-    if second > 12: # then only M->D->Y is possible
-        month, day, year = first, second, third if third > 99 else guess_true_year(third)
-        if within_month(day, month, year):
-            return year, month, day
-    elif first > 12: # then M->D->Y is impossible
-        # see if only one of D->M->Y or Y->M->D is possible
-        month = second
-        first_as_year = first if first > 99 else guess_true_year(first)
-        third_as_year = third if third > 99 else guess_true_year(third)
-        if (within_month(first, month, third_as_year)
-                is not within_month(third, month, first_as_year)):
-            return (third_as_year, month, first
-                    if within_month(first, month, third_as_year)
-                    else first_as_year, month, third)
+    if match:
+        first, second, third = (int(i) for i in match.groups())
+        # try to eliminate/confirm possibilities of formats MDY, DMY, YMD
+        if second > 12: # then only M->D->Y is possible
+            month, day, year = first, second, third if third > 99 else guess_true_year(third)
+            if within_month(day, month, year):
+                return year, month, day
+        elif first > 12: # then M->D->Y is impossible
+            # see if only one of D->M->Y or Y->M->D is possible
+            month = second
+            first_as_year = first if first > 99 else guess_true_year(first)
+            third_as_year = third if third > 99 else guess_true_year(third)
+            if (within_month(first, month, third_as_year)
+                    is not within_month(third, month, first_as_year)):
+                return ((third_as_year, month, first)
+                        if within_month(first, month, third_as_year)
+                        else (first_as_year, month, third))
 
     # by now, the program was unable to unambiguously find the date and
     # will ask the user to input it manually
@@ -206,7 +207,8 @@ def string_to_HMS(dt_string):
      - colon(s) will and only will be used to describe a time
      - standard hour-minute-second-am/pm format
      - hour and minute must be specified, while
-       second and am/pm specification is optional
+       second and am/pm specification are optional
+     - a format with just hour and am/pm MAY be interpretable (WIP)
     """
     hour = minute = second = 0
     date_string = dt_string
@@ -217,8 +219,17 @@ def string_to_HMS(dt_string):
             r'(\d{1,2}):(\d{2})(?::(\d{2}))?(?!\d)(?:\s*([aApP]\.?[mM]\.?))?',
             dt_string)
 
+        if match:
+            minute = int(match[2])
+        # trying to account for hour+am/pm without min or sec
+        else:
+            match = re.search(
+                r'(\d{1,2})()()\s*([aApP]\.?[mM]\.?)',
+                dt_string)
+
+            minute = 0
+
         hour = int(match[1])
-        minute = int(match[2])
 
     # if looking for colons didn't work, just give up and warn that
     # time could not be extracted from dt_string
@@ -227,14 +238,19 @@ def string_to_HMS(dt_string):
     # the program is currently structured
     except TypeError as t_e:
         if 'NoneType' in t_e.args[0]:
-            print('Could not determine time from the following line:')
-            print(dt_string)
-            print('Please input time (as on a 24-hour clock) in the following format: HH:MM:SS')
-            print('(If time is not known, write 00:00:00)')
-            stdout.flush()
-            time = stdin.readline().rstrip('\n')
-            print()
-            hour, minute, second = (int(i) for i in time.split(':'))
+            # If many draft rankings don't have time specified, it's
+            # annoying to be asked about all of them. Perhaps just
+            # automatically assign 00:00:00 as the time
+            pass
+
+            # print('Could not determine time from the following line:')
+            # print(dt_string)
+            # print('Please input time (as on a 24-hour clock) in the following format: HH:MM:SS')
+            # print('(If time is not known, write 00:00:00)')
+            # stdout.flush()
+            # time = stdin.readline().rstrip('\n')
+            # print()
+            # hour, minute, second = (int(i) for i in time.split(':'))
         else:
             raise
 
@@ -276,7 +292,7 @@ def form_drafts():
     statuses = DraftRanking.attrs()
     current_status = statuses[0]
     dr_args = DraftRanking.init_args_template()
-    with fileinput.input() as f_i:
+    with fileinput.input(openhook=fileinput.hook_encoded('utf-8')) as f_i:
         for line in f_i:
             line = line.rstrip('\n')
             if line:
@@ -286,7 +302,9 @@ def form_drafts():
                 if current_status is DraftAttr.PLAYER:
                     # remove periods from names
                     line = line.replace('.', '')
-                    dr_args[current_status.value].append(line)
+                    # casefold each name so that case will not be
+                    # considered in comparisons between names
+                    dr_args[current_status.value].append(line.casefold())
                 else:
                     if current_status is DraftAttr.TIME:
                         # convert the string into a datetime object
