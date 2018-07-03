@@ -2,7 +2,7 @@
 Evaluate how close a mock draft's ranking was to the actual draft using some simple similarity metrics
 
 ## Setup
-1. Make sure you have [Python 3](https://www.python.org/downloads/) installed and that you can run Python programs from your command line.
+1. Make sure you have [Python](https://www.python.org/downloads/) (version 3.6 or later) installed and that you can run Python programs from your command line.
 2. Clone or download this repository or its files. You can also make your own text files describing various drafts and mock drafts to use with the program. The files must follow this format:
    * Each draft must contain information describing what organization produced it and at what time it was updated, as well as a list of the players in the draft in order of draft position.
    * The first line is the name of the organization that produced the draft. For an actual draft, the organization should be the league to which the draft pertains, e.g. `NBA`.
