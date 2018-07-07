@@ -128,7 +128,7 @@ def string_to_YMD(date_string, dt_string):
     m_pattern = r'(?<![:\d])(\d{1,2})?(?:[a-zA-Z]{2})?\s*(?:of)?\s*([a-zA-Z]{3,})\s*(?:the)?\s*(\d{1,2})?(?:[a-zA-Z]{2})?(?![:\d])'
     word_format = re.search(m_pattern, date_string)
     if word_format:
-        word = word_format[2].casefold()
+        word = word_format.group(2).casefold()
         # if the month was spelled out in its entirety,
         # finding it is O(1) time; if month was abbrev'ed, O(n)
         if word in all_months:
@@ -141,9 +141,9 @@ def string_to_YMD(date_string, dt_string):
 
         # if month was successfully found, day should be immediately
         # before or after it
-        if month and any((word_format[1], word_format[3])):
-            if not all((word_format[1], word_format[3])):
-                day = int(word_format[3]) if word_format[3] else int(word_format[1])
+        if month and any((word_format.group(1), word_format.group(3))):
+            if not all((word_format.group(1), word_format.group(3))):
+                day = int(word_format.group(3)) if word_format.group(3) else int(word_format.group(1))
                 # if day has also been found, only year should remain
                 year_string = date_string[:word_format.start()] + date_string[word_format.end():]
                 find_year = re.findall(r'(?<![:\d])\d{2}(?:\d{2})?(?![:\d])', year_string)
@@ -159,7 +159,7 @@ def string_to_YMD(date_string, dt_string):
                 # with two 1- or 2-digit numbers to consider, see if
                 # only one of them can be the day, knowing month and
                 # positing the other number to be the year
-                first, second = int(word_format[1]), int(word_format[3])
+                first, second = int(word_format.group(1)), int(word_format.group(3))
                 first_as_year = guess_true_year(first)
                 second_as_year = guess_true_year(second)
                 if (within_month(first, month, second_as_year)
@@ -214,61 +214,43 @@ def string_to_HMS(dt_string):
     date_string = dt_string
 
     # If you try to break this, it will break.
-    try:
+    match = re.search(
+        r'(\d{1,2}):(\d{2})(?::(\d{2}))?(?!\d)(?:\s*([aApP]\.?[mM]\.?))?',
+        dt_string)
+
+    if match:
+        minute = int(match.group(2))
+    # trying to account for hour+am/pm without min or sec
+    else:
         match = re.search(
-            r'(\d{1,2}):(\d{2})(?::(\d{2}))?(?!\d)(?:\s*([aApP]\.?[mM]\.?))?',
+            r'(\d{1,2})()()\s*([aApP]\.?[mM]\.?)',
             dt_string)
 
-        if match:
-            minute = int(match[2])
-        # trying to account for hour+am/pm without min or sec
-        else:
-            match = re.search(
-                r'(\d{1,2})()()\s*([aApP]\.?[mM]\.?)',
-                dt_string)
+        minute = 0
 
-            minute = 0
+        # If many draft rankings don't have time specified or the
+        # program can't figure them out, it's annoying for the user to
+        # be asked about all of them. Perhaps just automatically
+        # assign 00:00:00 as the time
+        if not match:
+            return hour, minute, second, date_string
 
-        hour = int(match[1])
+    hour = int(match.group(1))
 
-    # if looking for colons didn't work, just give up and warn that
-    # time could not be extracted from dt_string
-    # raise an Exception, show dt_string and ask user to input the time
-    # I'd like to also show org name, but cannot do that with the way
-    # the program is currently structured
-    except TypeError as t_e:
-        if 'NoneType' in t_e.args[0]:
-            # If many draft rankings don't have time specified, it's
-            # annoying to be asked about all of them. Perhaps just
-            # automatically assign 00:00:00 as the time
-            pass
+    if match.group(3):
+        second = int(match.group(3))
 
-            # print('Could not determine time from the following line:')
-            # print(dt_string)
-            # print('Please input time (as on a 24-hour clock) in the following format: HH:MM:SS')
-            # print('(If time is not known, write 00:00:00)')
-            # stdout.flush()
-            # time = stdin.readline().rstrip('\n')
-            # print()
-            # hour, minute, second = (int(i) for i in time.split(':'))
-        else:
-            raise
+    # if no am/pm is found, just assume the hour is good as is
+    # otherwise, watch out for trickery like 12am/pm
+    if match.group(4):
+        am_pm = match.group(4).casefold()
+        if hour == 12 and 'a' in am_pm:
+            hour = 0
+        if hour < 12 and 'p' in am_pm:
+            hour += 12
 
-    else:
-        if match[3]:
-            second = int(match[3])
-
-        # if no am/pm is found, just assume the hour is good as is
-        # otherwise, watch out for trickery like 12am/pm
-        if match[4]:
-            am_pm = match[4].casefold()
-            if hour == 12 and 'a' in am_pm:
-                hour = 0
-            if hour < 12 and 'p' in am_pm:
-                hour += 12
-
-        # take the time out of dt_string
-        date_string = dt_string[:match.start()] + dt_string[match.end():]
+    # take the time out of dt_string
+    date_string = dt_string[:match.start()] + dt_string[match.end():]
 
     return hour, minute, second, date_string
 
