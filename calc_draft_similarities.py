@@ -102,7 +102,7 @@ def within_month(possible_day, month, year):
 
     return False
 
-def string_to_YMD(date_string, dt_string):
+def string_to_ymd(date_string, dt_string):
     """
     Find year, month, and day from a string of date (and perhaps time).
 
@@ -125,7 +125,8 @@ def string_to_YMD(date_string, dt_string):
     # Also attempt to find 1- or 2-digit numbers immediately before and after
     # Also tries to account for ordinal phrases such as "5th of November" or "May the 4th"
     # but *not* if an ordinal number is written out, e.g. "first" or "thirtieth", forget that noise
-    m_pattern = r'(?<![:\d])(\d{1,2})?(?:[a-zA-Z]{2})?\s*(?:of)?\s*([a-zA-Z]{3,})\s*(?:the)?\s*(\d{1,2})?(?:[a-zA-Z]{2})?(?![:\d])'
+    m_pattern = (r'(?<![:\d])(\d{1,2})?(?:[a-zA-Z]{2})?\s*(?:of)?\s*([a-zA-Z]{3,})\s*(?:the)?\s*'
+                 r'(\d{1,2})?(?:[a-zA-Z]{2})?(?![:\d])')
     word_format = re.search(m_pattern, date_string)
     if word_format:
         word = word_format.group(2).casefold()
@@ -143,7 +144,8 @@ def string_to_YMD(date_string, dt_string):
         # before or after it
         if month and any((word_format.group(1), word_format.group(3))):
             if not all((word_format.group(1), word_format.group(3))):
-                day = int(word_format.group(3)) if word_format.group(3) else int(word_format.group(1))
+                day = (int(word_format.group(3)) if word_format.group(3)
+                       else int(word_format.group(1)))
                 # if day has also been found, only year should remain
                 year_string = date_string[:word_format.start()] + date_string[word_format.end():]
                 find_year = re.findall(r'(?<![:\d])\d{2}(?:\d{2})?(?![:\d])', year_string)
@@ -191,7 +193,8 @@ def string_to_YMD(date_string, dt_string):
     # by now, the program was unable to unambiguously find the date and
     # will ask the user to input it manually
     print('Could not determine date from the following line:')
-    print(dt_string)
+    # print(dt_string)
+    stdout.buffer.write(dt_string.encode('utf-8'))
     print('Please input date in the following format: YYYYY-MM-DD')
     stdout.flush()
     date = stdin.readline().rstrip('\n')
@@ -199,7 +202,7 @@ def string_to_YMD(date_string, dt_string):
     year, month, day = (int(i) for i in date.split('-'))
     return year, month, day
 
-def string_to_HMS(dt_string):
+def string_to_hms(dt_string):
     """
     Find hour, minute, and second from a string of date and time.
 
@@ -258,8 +261,8 @@ def string_to_datetime(dt_string):
     """Given a string describing date and time, return a datetime."""
     # since time should be easier to figure out than date,
     # find time and then take it out of the input for finding date
-    hour, minute, second, date_string = string_to_HMS(dt_string)
-    year, month, day = string_to_YMD(date_string, dt_string)
+    hour, minute, second, date_string = string_to_hms(dt_string)
+    year, month, day = string_to_ymd(date_string, dt_string)
 
     return datetime(year, month, day, hour, minute, second)
 
@@ -365,8 +368,12 @@ def standardize_variations(actual, mocks):
                     for close_match in get_close_matches(i, mock_names, n=len(mock_names)):
                         if (close_match not in non_matches[i]
                                 and close_match not in actual.player_set):
-                            response = input('Is {} the same person as {}? (yes/no)\n'
-                                             .format(close_match, i)).casefold()
+                            # response = input('Is {} the same person as {}? (y/n)\n'
+                            #                  .format(close_match, i)).casefold()
+                            stdout.buffer.write('Is {} the same person as {}? (y/n)\n'
+                                                .format(close_match, i).encode('utf-8'))
+                            stdout.flush()
+                            response = stdin.readline().rstrip('\n').casefold()
                             if 'y' in response:
                                 confirmed_matches[i].add(close_match)
                                 j.correct_name(close_match, i)
@@ -426,6 +433,7 @@ def display_results(measure_names, measures):
     print(('|{:^{}}').format('Organization', offset),
           *(('{:^{}}').format(i[0], i[1]) for i in col_lengths),
           sep='|', end='|\n')
+    stdout.buffer.write()
     print('-' * line_length)
     # create the rows of the table, one row for each mock draft
     for draft in measures[0]:
