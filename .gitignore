@@ -103,3 +103,4 @@ ENV/
 # just files for testing out some Python
 test.py
 test_drafts
+encode.py

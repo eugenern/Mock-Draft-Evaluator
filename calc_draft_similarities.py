@@ -370,6 +370,7 @@ def standardize_variations(actual, mocks):
                                 and close_match not in actual.player_set):
                             # response = input('Is {} the same person as {}? (y/n)\n'
                             #                  .format(close_match, i)).casefold()
+                            stdout.flush()
                             stdout.buffer.write('Is {} the same person as {}? (y/n)\n'
                                                 .format(close_match, i).encode('utf-8'))
                             stdout.flush()
@@ -409,7 +410,7 @@ def rbo_similarity(actual, mocks, p=0):
     for mock in mocks:
         yield mock, rbo.score(actual.player_list, mock.player_list)
 
-def display_results(measure_names, measures):
+def display_results(measure_names, sim_measures):
     """
     Extremely rough code for displaying the orgs and their similarity scores in a table
 
@@ -421,7 +422,7 @@ def display_results(measure_names, measures):
     col_lengths = list((name, max(len(name), 7)) for name in measure_names)
     # length of the first column: greatest length between all org names
     # as well as 'Organization' (the column name)
-    offset = max(max(len(name) for name in measures[0]), len('Organization'))
+    offset = max(max(len(draft.org_name) for draft in sim_measures[0]), len('Organization'))
     # number of characters in each line taking into account offset, all
     # column lengths, and the number of pipes (used as column dividers)
     # in each line
@@ -430,17 +431,24 @@ def display_results(measure_names, measures):
     print()
     print('-' * line_length)
     # table headers: 'Organization' and each measure name
-    print(('|{:^{}}').format('Organization', offset),
-          *(('{:^{}}').format(i[0], i[1]) for i in col_lengths),
-          sep='|', end='|\n')
-    stdout.buffer.write()
+    # print(('|{:^{}}').format('Organization', offset),
+    #       *(('{:^{}}').format(i[0], i[1]) for i in col_lengths),
+    #       sep='|', end='|\n')
+    header = [['Organization', offset]] + col_lengths
+    org_names = b'|'.join(('{:^{}}').format(i[0], i[1]).encode('utf-8') for i in header)
+    stdout.flush()
+    stdout.buffer.write(b''.join((b'|', org_names, b'|\n')))
     print('-' * line_length)
     # create the rows of the table, one row for each mock draft
-    for draft in measures[0]:
+    for draft in sim_measures[0]:
         # org name followed by each similarity score for the mock draft
-        print(('|{:<{}}').format(draft, offset),
-              *(('{:>{}.3%}').format(m[draft], c_l[1]) for c_l, m in zip(col_lengths, measures)),
-              sep='|', end='|\n')
+        # print(('|{:<{}}').format(draft.org_name, offset),
+        #       *(('{:>{}.3%}').format(m[draft], c_l[1]) for m, c_l in zip(sim_measures, col_lengths)),
+        #       sep='|', end='|\n')
+        draft_name = ('|{:<{}}').format(draft.org_name, offset).encode('utf-8')
+        sim_scores = (('{:>{}.3%}').format(m[draft], c_l[1]).encode('utf-8') for c_l, m in zip(col_lengths, sim_measures))
+        stdout.flush()
+        stdout.buffer.write(b'|'.join((draft_name, *sim_scores, b'\n')))
     print('-' * line_length)
 
 def evaluate():
@@ -458,17 +466,19 @@ def evaluate():
     # have to think about how to design the code to make adding
     # additional similarity measures a clean process and also how to
     # display all the info in an easy-to-read way
-    ratios = dict((i.org_name, j) for i, j in sequence_matcher_similarity(actual, mocks))
-    rbo_scores = dict((i.org_name, j) for i, j in rbo_similarity(actual, mocks))
+    # ratios = dict((i.org_name, j) for i, j in sequence_matcher_similarity(actual, mocks))
+    # rbo_scores = dict((i.org_name, j) for i, j in rbo_similarity(actual, mocks))
+    ratios = dict(sequence_matcher_similarity(actual, mocks))
+    rbo_scores = dict(rbo_similarity(actual, mocks))
 
     # kinda feels like these two variables should be linked together or
     # something, but it also seems unnecessary to do so
     measure_names = ('SequenceMatcher', 'RBO score')
-    measures = (ratios, rbo_scores)
+    sim_measures = (ratios, rbo_scores)
 
     # probably wanna have display_results include a 'time of update'
     # column so multiple mocks from same org can be compared
-    display_results(measure_names, measures)
+    display_results(measure_names, sim_measures)
 
 if __name__ == "__main__":
     evaluate()
