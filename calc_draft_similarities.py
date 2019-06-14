@@ -480,5 +480,18 @@ def evaluate():
     # column so multiple mocks from same org can be compared
     display_results(measure_names, sim_measures)
 
+def check_draft_lengths(expected):
+    """
+    Check to see if any DraftRankings are of unexpected lengths
+    """
+    mocks = list(form_drafts())
+
+    for m in mocks:
+        l = len(m.player_list)
+        if l not in expected:
+            print('{}\'s draft made on {} has {} names'.format(m.org_name, m.time_of_update, l))
+
 if __name__ == "__main__":
-    evaluate()
+    # evaluate()
+    # common NBA mock draft lengths: 14 (lottery), 30 (first round), and 60 (both rounds)
+    check_draft_lengths({14, 30, 60})
