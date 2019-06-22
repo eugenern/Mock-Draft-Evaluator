@@ -112,6 +112,9 @@ def string_to_ymd(date_string, dt_string):
      - A month represented in word form ought to be immediately preceded or succeeded by the day
      - Presumably, the only reason a 4-digit number would appear is to represent the year
      - Possible formats involving slashes: (M)M/(D)D/(YY)YY, (D)D/(M)M/(YY)YY, (YY)YY/(M)M/(D)D
+
+     Assumption for convenience:
+      - if an ambiguous date could be either MM/DD/YYYY or DD/MM/YYYY, assume American format
     """
     all_months = dict(
         january=1, february=2, march=3, april=4, may=5, june=6, july=7,
@@ -125,13 +128,13 @@ def string_to_ymd(date_string, dt_string):
     # Also attempt to find 1- or 2-digit numbers immediately before and after
     # Also tries to account for ordinal phrases such as "5th of November" or "May the 4th"
     # but *not* if an ordinal number is written out, e.g. "first" or "thirtieth", forget that noise
-    m_pattern = (r'(?<![:\d])(\d{1,2})?(?:[a-zA-Z]{2})?\s*(?:of)?\s*([a-zA-Z]{3,})\s*(?:the)?\s*'
+    m_pattern = (r'(?<![:\d])(\d{1,2})?(?:[a-zA-Z]{2})?\s*(?:of)?\s*([a-zA-Z]{3,})\.?\s*(?:the)?\s*'
                  r'(\d{1,2})?(?:[a-zA-Z]{2})?(?![:\d])')
     word_format = re.search(m_pattern, date_string)
     if word_format:
         word = word_format.group(2).casefold()
-        # if the month was spelled out in its entirety,
-        # finding it is O(1) time; if month was abbrev'ed, O(n)
+        # see if the month was spelled out in its entirety,
+        # then check for if month was abbreviated
         if word in all_months:
             month = all_months[word]
         else:
@@ -170,7 +173,10 @@ def string_to_ymd(date_string, dt_string):
                             if within_month(first, month, second_as_year)
                             else (first_as_year, month, second))
 
-    # now check for slashes or hyphens
+    # now check for slashes, periods, or hyphens
+    # this doesn't take advantage of cases where year > (28-31) and
+    # month and day < (28-31), but that shouldn't be relevant unless
+    # there are mock drafts from before 2000 or after 2028
     match = re.search(r'(\d+)[/.-](\d+)[/.-](\d+)', date_string)
     if match:
         first, second, third = (int(i) for i in match.groups())
@@ -189,13 +195,22 @@ def string_to_ymd(date_string, dt_string):
                 return ((third_as_year, month, first)
                         if within_month(first, month, third_as_year)
                         else (first_as_year, month, third))
+        else:
+            # Assumption for convenience: MDY is the format used
+            # Not good if there is a chance that mock drafts dated
+            # according to other formats are included, but assuming MDY
+            # is much more convenient and probably safe if the mock
+            # drafts are gathered from American sources
+            month, day, year = first, second, third if third > 99 else guess_true_year(third)
+            if within_month(day, month, year):
+                return year, month, day
 
     # by now, the program was unable to unambiguously find the date and
     # will ask the user to input it manually
     print('Could not determine date from the following line:')
     # print(dt_string)
     stdout.buffer.write(dt_string.encode('utf-8'))
-    print('Please input date in the following format: YYYYY-MM-DD')
+    print('\nPlease input date in the following format: YYYYY-MM-DD')
     stdout.flush()
     date = stdin.readline().rstrip('\n')
     print()
