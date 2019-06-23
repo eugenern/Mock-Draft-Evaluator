@@ -506,6 +506,23 @@ def check_draft_lengths(expected):
         if l not in expected:
             print('{}\'s draft made on {} has {} names'.format(m.org_name, m.time_of_update, l))
 
+def check_for_duplicates():
+    """
+    Check to see if any two DraftRankings have the same players in the
+    same order. Could be used to help weed out duplicate mock drafts
+    that were inserted by accident.
+
+    Note #1: one may want to have a list of all prospects across all
+    mock drafts so that all names can be standardized rather than only
+    the prospects who are actually drafted. I may write a function to
+    create such a list.
+
+    Note #2: IMO it makes sense to only compare names up to the length
+    of the shorter list. It's possible that two mock drafts are
+    duplicates but were gathered in different ways and one was
+    incomplete, for example.
+    """
+
 if __name__ == "__main__":
     # evaluate()
     # common NBA mock draft lengths: 14 (lottery), 30 (first round), and 60 (both rounds)
